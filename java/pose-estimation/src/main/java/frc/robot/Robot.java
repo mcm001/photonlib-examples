@@ -98,26 +98,16 @@ public class Robot extends TimedRobot {
         var result = camera.getLatestResult();
         if (result.hasTargets()) {
 
-            // This Translation2d represents the transform (X and Y displacement) between the robot and the target.
-            // We negate yaw so that its positive CCW
-            var cameraToTargetTranslation = PhotonUtils.estimateTargetTranslation2d(
-                PhotonUtils.calculateDistanceToTargetMeters(CAMERA_HEIGHT_METERS, TARGET_HEIGHT_METERS,
-                    CAMERA_PITCH_RADIANS, result.getBestTarget().getPitch()),
-                Rotation2d.fromDegrees(-result.getBestTarget().getYaw()));
-
-            // This pose maps our camera at the origin out to our target, in the robot reference frame
-            // The translation part of this Transform2d is from the above step, and the rotation uses our robot's
-            // gyro.
-            var cameraToTarget = new Transform2d(cameraToTargetTranslation, gyro.getRotation2d().times(-1).minus(fieldToTarget.getRotation()));
-
-            // We want to know where our camera is on the field. To do this, we'll take the inverse of cameraToTarget
-            // (giving targetToCamera), and transform fieldToTarget by targetToCamera. This transform chain will
-            // yield fieldToCamera, or our camera's position on the field.
-            var targetToCamera = cameraToTarget.inverse();
-            var fieldToCamera = fieldToTarget.transformBy(targetToCamera);
-
-            // Field to robot is then field to camera transformed by camera to robot
-            var fieldToRobot = fieldToCamera.transformBy(cameraToRobot);
+            var fieldToRobot = PhotonUtils.estimateFieldToRobot(
+                CAMERA_HEIGHT_METERS,
+                TARGET_HEIGHT_METERS,
+                CAMERA_PITCH_RADIANS,
+                TARGET_HEIGHT_METERS,
+                Rotation2d.fromDegrees(-result.getBestTarget().getYaw()),
+                gyro.getRotation2d(),
+                fieldToTarget,
+                cameraToRobot
+            );
 
             // We'll add this pose measurement to our pose estimator
             estimator.addVisionMeasurement(fieldToRobot, Timer.getFPGATimestamp() - result.getLatencyMillis() / 1000.0);
